@@ -67,8 +67,9 @@ function setStatus(status, details = "") {
     <p><strong>Model:</strong> ${getModel()}</p>
     <p><strong>Server:</strong> ${status}</p>
     ${details ? `<p><strong>Details:</strong> ${details}</p>` : ""}
-    <p><strong>PowerShell start command:</strong> <code>Start-Process ollama -ArgumentList 'serve'</code></p>
+    <p><strong>PowerShell start command:</strong> <code>Start-Process ollama -ArgumentList 'serve'; Start-Process 'http://localhost:11434'</code></p>
     <p><strong>PowerShell stop command:</strong> <code>Get-Process ollama | Stop-Process -Force</code></p>
+    <p><strong>Ollama API:</strong> <a href="http://localhost:11434" target="_blank" rel="noopener noreferrer">http://localhost:11434</a></p>
   `;
 }
 
@@ -152,7 +153,7 @@ els.startOllamaBtn.onclick = () => {
   addMessage(
     els.chat,
     "assistant",
-    "Run this in PowerShell to start Ollama:\nStart-Process ollama -ArgumentList 'serve'",
+    "Run this in PowerShell to start Ollama and open the site:\nStart-Process ollama -ArgumentList 'serve'; Start-Process 'http://localhost:11434'",
     "System"
   );
 };
