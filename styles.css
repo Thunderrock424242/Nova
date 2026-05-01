@@ -74,13 +74,14 @@ h1 { margin: 0 0 0.35rem; font-size: clamp(1.4rem, 3vw, 2rem); }
 @keyframes spinA { to { transform: rotate(360deg); } }
 @keyframes spinB { to { transform: rotate(-360deg); } }
 @keyframes spinC { to { transform: rotate(360deg) scale(1.04); } }
+.tagline, label, .status { color: var(--subtle); }
 .settings { margin: 1rem 0; }
 .row { display: flex; gap: 0.6rem; margin-top: 0.5rem; }
 .row.wrap { flex-wrap: wrap; align-items: center; }
-input, button {
+input, button, textarea {
   border-radius: 10px; border: 1px solid rgb(255 255 255 / 10%); font-size: 0.95rem;
 }
-input { flex: 1; padding: 0.7rem 0.85rem; background: #0d1223; color: var(--text); }
+input, textarea { flex: 1; padding: 0.7rem 0.85rem; background: #0d1223; color: var(--text); }
 button {
   padding: 0.7rem 0.95rem;
   color: #0e1326;
@@ -92,8 +93,8 @@ button.secondary { background: #202a4f; color: var(--text); }
 .checkbox { display: inline-flex; align-items: center; gap: 0.5rem; }
 .voice-status { margin: 0.6rem 0 0; color: #90f0e9; font-size: 0.88rem; }
 .chat {
-  min-height: 300px;
-  max-height: 50vh;
+  min-height: 220px;
+  max-height: 42vh;
   overflow: auto;
   background: rgb(0 0 0 / 20%);
   border: 1px solid rgb(255 255 255 / 8%);
@@ -104,3 +105,10 @@ button.secondary { background: #202a4f; color: var(--text); }
 .msg.user { background: var(--user); }
 .msg.nova { background: var(--nova); }
 .meta { font-size: 0.75rem; color: var(--subtle); margin-bottom: 0.2rem; }
+.tabs { display: flex; gap: 0.5rem; margin: 1rem 0; }
+.tab { background: #1a2242; color: var(--text); }
+.tab.active { outline: 2px solid var(--accent); }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+.panel { background: rgb(255 255 255 / 3%); border-radius: 12px; padding: 0.75rem 0.9rem; }
+code { background: #0f1530; padding: 0.1rem 0.3rem; border-radius: 6px; }
