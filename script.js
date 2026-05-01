@@ -6,14 +6,20 @@ const els = {
   saveKeyBtn: document.getElementById("saveKeyBtn"),
   internetToggle: document.getElementById("internetToggle"),
   speakBtn: document.getElementById("speakBtn"),
+  voiceBtn: document.getElementById("voiceBtn"),
   clearBtn: document.getElementById("clearBtn"),
+  voiceStatus: document.getElementById("voiceStatus"),
+  novaOrb: document.getElementById("novaOrb"),
   chat: document.getElementById("chat"),
   chatForm: document.getElementById("chatForm"),
   messageInput: document.getElementById("messageInput")
 };
 
 const state = {
-  messages: JSON.parse(localStorage.getItem("nova_chat") || "[]")
+  messages: JSON.parse(localStorage.getItem("nova_chat") || "[]"),
+  voiceMode: false,
+  speaking: false,
+  recognition: null
 };
 
 const SYS_PROMPT = `You are Nova, a friendly female-presenting assistant with a soothing tone.
@@ -26,6 +32,15 @@ function greetingName() {
 
 function renderGreeting() {
   els.greeting.textContent = `Greetings, ${greetingName()}.`;
+}
+
+function setOrbState(mode = "idle") {
+  els.novaOrb.classList.remove("idle", "listening", "speaking");
+  els.novaOrb.classList.add(mode);
+}
+
+function setVoiceStatus(text) {
+  els.voiceStatus.textContent = `Voice: ${text}`;
 }
 
 function addMessage(role, text, meta = "") {
@@ -88,15 +103,92 @@ async function askNova(userText) {
   return data.choices?.[0]?.message?.content?.trim() || "I couldn't generate a reply.";
 }
 
-function speak(text) {
+function speak(text, onDone) {
   if (!("speechSynthesis" in window)) return;
+  window.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.rate = 0.9;
   utterance.pitch = 0.95;
   const voices = window.speechSynthesis.getVoices();
   const preferred = voices.find((v) => /female|samantha|victoria|zira|karen|aria/i.test(v.name));
   if (preferred) utterance.voice = preferred;
+
+  utterance.onstart = () => {
+    state.speaking = true;
+    setOrbState("speaking");
+    setVoiceStatus("Nova speaking");
+  };
+  utterance.onend = () => {
+    state.speaking = false;
+    if (state.voiceMode) {
+      setOrbState("listening");
+      setVoiceStatus("Listening");
+      state.recognition?.start();
+    } else {
+      setOrbState("idle");
+      setVoiceStatus("idle");
+    }
+    if (onDone) onDone();
+  };
   window.speechSynthesis.speak(utterance);
+}
+
+async function handleUserText(text) {
+  const userMsg = { role: "user", text };
+  state.messages.push(userMsg);
+  addMessage("user", text, greetingName());
+
+  try {
+    const reply = await askNova(text);
+    const novaMsg = { role: "assistant", text: reply };
+    state.messages.push(novaMsg);
+    localStorage.setItem("nova_chat", JSON.stringify(state.messages));
+    addMessage("assistant", reply, "Nova");
+    speak(reply.slice(0, 220));
+  } catch (err) {
+    addMessage("assistant", err.message, "Error");
+    if (state.voiceMode) {
+      setOrbState("listening");
+      setVoiceStatus("Listening");
+    }
+  }
+}
+
+function setupVoiceRecognition() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    setVoiceStatus("Speech recognition unsupported in this browser");
+    els.voiceBtn.disabled = true;
+    return;
+  }
+
+  const recognition = new SpeechRecognition();
+  recognition.lang = "en-US";
+  recognition.interimResults = false;
+  recognition.continuous = false;
+  state.recognition = recognition;
+
+  recognition.onresult = (event) => {
+    const transcript = event.results[0]?.[0]?.transcript?.trim();
+    if (!transcript) return;
+    setVoiceStatus("Processing");
+    handleUserText(transcript);
+  };
+
+  recognition.onend = () => {
+    if (state.voiceMode && !state.speaking) {
+      setVoiceStatus("Listening");
+      setOrbState("listening");
+      recognition.start();
+    }
+  };
+
+  recognition.onerror = () => {
+    if (state.voiceMode) {
+      setVoiceStatus("Voice error, retrying");
+      setTimeout(() => recognition.start(), 500);
+    }
+  };
 }
 
 els.saveNameBtn.onclick = () => {
@@ -123,27 +215,32 @@ els.clearBtn.onclick = () => {
 
 els.speakBtn.onclick = () => speak(`Hi ${greetingName()}, I am Nova. I'm here for you.`);
 
+els.voiceBtn.onclick = () => {
+  if (!state.recognition) return;
+  state.voiceMode = !state.voiceMode;
+  if (state.voiceMode) {
+    els.voiceBtn.textContent = "Stop Voice Chat";
+    setOrbState("listening");
+    setVoiceStatus("Listening");
+    state.recognition.start();
+  } else {
+    els.voiceBtn.textContent = "Start Voice Chat";
+    state.recognition.stop();
+    window.speechSynthesis.cancel();
+    state.speaking = false;
+    setOrbState("idle");
+    setVoiceStatus("idle");
+  }
+};
+
 els.chatForm.onsubmit = async (e) => {
   e.preventDefault();
   const text = els.messageInput.value.trim();
   if (!text) return;
   els.messageInput.value = "";
-
-  const userMsg = { role: "user", text };
-  state.messages.push(userMsg);
-  addMessage("user", text, greetingName());
-
-  try {
-    const reply = await askNova(text);
-    const novaMsg = { role: "assistant", text: reply };
-    state.messages.push(novaMsg);
-    localStorage.setItem("nova_chat", JSON.stringify(state.messages));
-    addMessage("assistant", reply, "Nova");
-    speak(reply.slice(0, 220));
-  } catch (err) {
-    addMessage("assistant", err.message, "Error");
-  }
+  await handleUserText(text);
 };
 
 renderGreeting();
 renderHistory();
+setupVoiceRecognition();
