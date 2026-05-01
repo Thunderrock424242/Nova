@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nova Assistant</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <section class="card">
+        <header>
+          <h1 id="greeting">Greetings, friend.</h1>
+          <p class="tagline">Nova — your soothing AI friend and assistant.</p>
+        </header>
+
+        <section class="settings">
+          <label for="nameInput">Your name</label>
+          <div class="row">
+            <input id="nameInput" type="text" placeholder="Enter your name" />
+            <button id="saveNameBtn">Save</button>
+          </div>
+
+          <label for="apiKeyInput">OpenAI API key (stored locally)</label>
+          <div class="row">
+            <input id="apiKeyInput" type="password" placeholder="sk-..." />
+            <button id="saveKeyBtn">Save Key</button>
+          </div>
+
+          <div class="row wrap">
+            <label class="checkbox">
+              <input id="internetToggle" type="checkbox" checked />
+              Allow internet lookup
+            </label>
+            <button id="speakBtn" class="secondary">Hear Nova</button>
+            <button id="clearBtn" class="secondary">Clear Chat</button>
+          </div>
+        </section>
+
+        <section id="chat" class="chat" aria-live="polite"></section>
+
+        <form id="chatForm" class="row">
+          <input id="messageInput" type="text" placeholder="Talk to Nova..." autocomplete="off" required />
+          <button type="submit">Send</button>
+        </form>
+      </section>
+    </main>
+
+    <script src="script.js"></script>
+  </body>
+</html>
