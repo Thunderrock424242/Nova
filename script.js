@@ -3,17 +3,15 @@ const els = {
   nameInput: document.getElementById("nameInput"),
   modelInput: document.getElementById("modelInput"),
   saveNameBtn: document.getElementById("saveNameBtn"),
-  saveKeyBtn: document.getElementById("saveKeyBtn"),
+  saveModelBtn: document.getElementById("saveModelBtn"),
   internetToggle: document.getElementById("internetToggle"),
   speakBtn: document.getElementById("speakBtn"),
   voiceBtn: document.getElementById("voiceBtn"),
   clearBtn: document.getElementById("clearBtn"),
   voiceStatus: document.getElementById("voiceStatus"),
   novaOrb: document.getElementById("novaOrb"),
-  saveModelBtn: document.getElementById("saveModelBtn"),
   startOllamaBtn: document.getElementById("startOllamaBtn"),
   stopOllamaBtn: document.getElementById("stopOllamaBtn"),
-  clearBtn: document.getElementById("clearBtn"),
   statusText: document.getElementById("statusText"),
   statusPanel: document.getElementById("statusPanel"),
   chat: document.getElementById("chat"),
@@ -30,23 +28,15 @@ const els = {
 
 const state = {
   messages: JSON.parse(localStorage.getItem("nova_chat") || "[]"),
+  teachingMessages: JSON.parse(localStorage.getItem("nova_teaching_chat") || "[]"),
   voiceMode: false,
   speaking: false,
   recognition: null
-  teachingMessages: JSON.parse(localStorage.getItem("nova_teaching_chat") || "[]")
 };
 
-function greetingName() {
-  return localStorage.getItem("nova_user_name") || "friend";
-}
-
-function getModel() {
-  return localStorage.getItem("nova_model") || "llama3.1:8b";
-}
-
-function getTeachingNotes() {
-  return localStorage.getItem("nova_teaching_notes") || "";
-}
+const greetingName = () => localStorage.getItem("nova_user_name") || "friend";
+const getModel = () => localStorage.getItem("nova_model") || "llama3.1:8b";
+const getTeachingNotes = () => localStorage.getItem("nova_teaching_notes") || "";
 
 function renderGreeting() {
   els.greeting.textContent = `Greetings, ${greetingName()}.`;
@@ -61,7 +51,6 @@ function setVoiceStatus(text) {
   els.voiceStatus.textContent = `Voice: ${text}`;
 }
 
-function addMessage(role, text, meta = "") {
 function addMessage(container, role, text, meta = "") {
   const div = document.createElement("div");
   div.className = `msg ${role === "user" ? "user" : "nova"}`;
@@ -87,9 +76,6 @@ function setStatus(status, details = "") {
     <p><strong>Model:</strong> ${getModel()}</p>
     <p><strong>Server:</strong> ${status}</p>
     ${details ? `<p><strong>Details:</strong> ${details}</p>` : ""}
-    <p><strong>PowerShell start command:</strong> <code>Start-Process ollama -ArgumentList 'serve'; Start-Process 'http://localhost:11434'</code></p>
-    <p><strong>PowerShell stop command:</strong> <code>Get-Process ollama | Stop-Process -Force</code></p>
-    <p><strong>Ollama API:</strong> <a href="http://localhost:11434" target="_blank" rel="noopener noreferrer">http://localhost:11434</a></p>
   `;
 }
 
@@ -101,16 +87,15 @@ async function checkOllamaStatus() {
     const models = (data.models || []).map((m) => m.name).join(", ") || "No local models installed";
     setStatus("Online", models);
   } catch {
-    setStatus("Offline", "Run the PowerShell start command below.");
+    setStatus("Offline", "Run: Start-Process ollama -ArgumentList 'serve'");
   }
 }
 
 async function askOllama(userText, mode = "chat") {
-  const teachingNotes = getTeachingNotes();
   const memory = state.teachingMessages.slice(-6).map((m) => `${m.role}: ${m.text}`).join("\n");
   const context = [
     "You are Nova, a friendly assistant.",
-    teachingNotes ? `User teaching notes:\n${teachingNotes}` : "",
+    getTeachingNotes() ? `User teaching notes:\n${getTeachingNotes()}` : "",
     memory ? `Recent teaching conversation:\n${memory}` : ""
   ].filter(Boolean).join("\n\n");
 
@@ -130,25 +115,15 @@ async function askOllama(userText, mode = "chat") {
     body: JSON.stringify(payload)
   });
 
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Ollama API error: ${err.slice(0, 220)}`);
-  }
-
+  if (!res.ok) throw new Error(`Ollama API error: ${(await res.text()).slice(0, 220)}`);
   const data = await res.json();
   return data.message?.content?.trim() || "I couldn't generate a reply.";
 }
 
-function speak(text, onDone) {
+function speak(text) {
   if (!("speechSynthesis" in window)) return;
   window.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
-  utterance.rate = 0.9;
-  utterance.pitch = 0.95;
-  const voices = window.speechSynthesis.getVoices();
-  const preferred = voices.find((v) => /female|samantha|victoria|zira|karen|aria/i.test(v.name));
-  if (preferred) utterance.voice = preferred;
-
   utterance.onstart = () => {
     state.speaking = true;
     setOrbState("speaking");
@@ -156,45 +131,32 @@ function speak(text, onDone) {
   };
   utterance.onend = () => {
     state.speaking = false;
-    if (state.voiceMode) {
+    if (state.voiceMode && state.recognition) {
       setOrbState("listening");
       setVoiceStatus("Listening");
-      state.recognition?.start();
+      state.recognition.start();
     } else {
       setOrbState("idle");
       setVoiceStatus("idle");
     }
-    if (onDone) onDone();
   };
   window.speechSynthesis.speak(utterance);
 }
-els.tabs.forEach((tab) => {
-  tab.onclick = () => {
-    els.tabs.forEach((t) => t.classList.remove("active"));
-    els.tabPanels.forEach((p) => p.classList.remove("active"));
-    tab.classList.add("active");
-    document.getElementById(tab.dataset.tab).classList.add("active");
-  };
-});
 
 async function handleUserText(text) {
-  const userMsg = { role: "user", text };
+  const userMsg = { role: "user", text, meta: greetingName() };
   state.messages.push(userMsg);
-  addMessage("user", text, greetingName());
+  addMessage(els.chat, "user", text, greetingName());
 
   try {
-    const reply = await askNova(text);
-    const novaMsg = { role: "assistant", text: reply };
+    const reply = await askOllama(text);
+    const novaMsg = { role: "assistant", text: reply, meta: "Nova" };
     state.messages.push(novaMsg);
     localStorage.setItem("nova_chat", JSON.stringify(state.messages));
-    addMessage("assistant", reply, "Nova");
-    speak(reply.slice(0, 220));
+    addMessage(els.chat, "assistant", reply, "Nova");
+    if (els.speakBtn.dataset.enabled === "true") speak(reply.slice(0, 220));
   } catch (err) {
-    addMessage("assistant", err.message, "Error");
-    if (state.voiceMode) {
-      setOrbState("listening");
-      setVoiceStatus("Listening");
-    }
+    addMessage(els.chat, "assistant", err.message, "Error");
   }
 }
 
@@ -206,149 +168,98 @@ function setupVoiceRecognition() {
     return;
   }
 
-  const recognition = new SpeechRecognition();
-  recognition.lang = "en-US";
-  recognition.interimResults = false;
-  recognition.continuous = false;
-  state.recognition = recognition;
-
-  recognition.onresult = (event) => {
+  state.recognition = new SpeechRecognition();
+  state.recognition.lang = "en-US";
+  state.recognition.onresult = (event) => {
     const transcript = event.results[0]?.[0]?.transcript?.trim();
-    if (!transcript) return;
-    setVoiceStatus("Processing");
-    handleUserText(transcript);
+    if (transcript) handleUserText(transcript);
   };
-
-  recognition.onend = () => {
-    if (state.voiceMode && !state.speaking) {
-      setVoiceStatus("Listening");
-      setOrbState("listening");
-      recognition.start();
-    }
-  };
-
-  recognition.onerror = () => {
-    if (state.voiceMode) {
-      setVoiceStatus("Voice error, retrying");
-      setTimeout(() => recognition.start(), 500);
-    }
+  state.recognition.onend = () => {
+    if (state.voiceMode && !state.speaking) state.recognition.start();
   };
 }
 
-els.saveNameBtn.onclick = () => {
-  const name = els.nameInput.value.trim();
-  if (!name) return;
-  localStorage.setItem("nova_user_name", name);
-  els.nameInput.value = "";
-  renderGreeting();
-};
-
-els.saveModelBtn.onclick = () => {
-  const model = els.modelInput.value.trim();
-  if (!model) return;
-  localStorage.setItem("nova_model", model);
-  addMessage(els.chat, "assistant", `Using model: ${model}`, "System");
-  checkOllamaStatus();
-};
-
-els.saveTeachingBtn.onclick = () => {
-  localStorage.setItem("nova_teaching_notes", els.teachingNotes.value.trim());
-  addMessage(els.teachingChat, "assistant", "Teaching notes saved. I'll use them in future responses.", "Nova");
-};
-
-els.startOllamaBtn.onclick = () => {
-  addMessage(
-    els.chat,
-    "assistant",
-    "Run this in PowerShell to start Ollama and open the site:\nStart-Process ollama -ArgumentList 'serve'; Start-Process 'http://localhost:11434'",
-    "System"
-  );
-};
-
-els.stopOllamaBtn.onclick = () => {
-  addMessage(
-    els.chat,
-    "assistant",
-    "Run this in PowerShell to stop Ollama:\nGet-Process ollama | Stop-Process -Force",
-    "System"
-  );
-};
-
-els.clearBtn.onclick = () => {
-  state.messages = [];
-  localStorage.removeItem("nova_chat");
-  renderHistory();
-};
-
-els.speakBtn.onclick = () => speak(`Hi ${greetingName()}, I am Nova. I'm here for you.`);
-
-els.voiceBtn.onclick = () => {
-  if (!state.recognition) return;
-  state.voiceMode = !state.voiceMode;
-  if (state.voiceMode) {
-    els.voiceBtn.textContent = "Stop Voice Chat";
-    setOrbState("listening");
-    setVoiceStatus("Listening");
-    state.recognition.start();
-  } else {
-    els.voiceBtn.textContent = "Start Voice Chat";
-    state.recognition.stop();
-    window.speechSynthesis.cancel();
-    state.speaking = false;
-    setOrbState("idle");
-    setVoiceStatus("idle");
-  }
-};
-
-els.chatForm.onsubmit = async (e) => {
-  e.preventDefault();
-  const text = els.messageInput.value.trim();
-  if (!text) return;
-  els.messageInput.value = "";
-  await handleUserText(text);
-
-  const userMsg = { role: "user", text, meta: greetingName() };
-  state.messages.push(userMsg);
-  addMessage(els.chat, "user", text, greetingName());
-
-  try {
-    const reply = await askOllama(text, "chat");
-    const novaMsg = { role: "assistant", text: reply, meta: "Nova" };
-    state.messages.push(novaMsg);
-    localStorage.setItem("nova_chat", JSON.stringify(state.messages));
-    addMessage(els.chat, "assistant", reply, "Nova");
+function initEvents() {
+  els.saveNameBtn.onclick = () => {
+    localStorage.setItem("nova_user_name", els.nameInput.value.trim() || "friend");
+    renderGreeting();
+  };
+  els.saveModelBtn.onclick = () => {
+    localStorage.setItem("nova_model", els.modelInput.value.trim() || "llama3.1:8b");
     checkOllamaStatus();
-  } catch (err) {
-    addMessage(els.chat, "assistant", err.message, "Error");
-    checkOllamaStatus();
-  }
-};
+  };
+  els.clearBtn.onclick = () => {
+    state.messages = [];
+    localStorage.setItem("nova_chat", "[]");
+    renderHistory();
+  };
+  els.speakBtn.onclick = () => {
+    const enabled = els.speakBtn.dataset.enabled !== "true";
+    els.speakBtn.dataset.enabled = String(enabled);
+    els.speakBtn.textContent = enabled ? "Auto-voice: On" : "Hear Nova";
+  };
+  els.voiceBtn.onclick = () => {
+    if (!state.recognition) return;
+    state.voiceMode = !state.voiceMode;
+    els.voiceBtn.textContent = state.voiceMode ? "Stop Voice Chat" : "Start Voice Chat";
+    if (state.voiceMode) {
+      setOrbState("listening");
+      setVoiceStatus("Listening");
+      state.recognition.start();
+    } else {
+      setOrbState("idle");
+      setVoiceStatus("idle");
+      state.recognition.stop();
+    }
+  };
 
-els.teachingForm.onsubmit = async (e) => {
-  e.preventDefault();
-  const text = els.teachingInput.value.trim();
-  if (!text) return;
-  els.teachingInput.value = "";
+  els.chatForm.onsubmit = async (e) => {
+    e.preventDefault();
+    const text = els.messageInput.value.trim();
+    if (!text) return;
+    els.messageInput.value = "";
+    await handleUserText(text);
+  };
 
-  const userMsg = { role: "user", text, meta: "Teacher" };
-  state.teachingMessages.push(userMsg);
-  addMessage(els.teachingChat, "user", text, "Teacher");
+  els.saveTeachingBtn.onclick = () => localStorage.setItem("nova_teaching_notes", els.teachingNotes.value || "");
 
-  try {
+  els.teachingForm.onsubmit = async (e) => {
+    e.preventDefault();
+    const text = els.teachingInput.value.trim();
+    if (!text) return;
+    els.teachingInput.value = "";
+    const userMsg = { role: "user", text, meta: greetingName() };
+    state.teachingMessages.push(userMsg);
+    addMessage(els.teachingChat, "user", text, greetingName());
+
     const reply = await askOllama(text, "teach");
     const novaMsg = { role: "assistant", text: reply, meta: "Nova" };
     state.teachingMessages.push(novaMsg);
     localStorage.setItem("nova_teaching_chat", JSON.stringify(state.teachingMessages));
     addMessage(els.teachingChat, "assistant", reply, "Nova");
-  } catch (err) {
-    addMessage(els.teachingChat, "assistant", err.message, "Error");
-  }
-};
+  };
 
-renderGreeting();
-els.modelInput.value = getModel();
-els.teachingNotes.value = getTeachingNotes();
-renderHistory();
-setupVoiceRecognition();
-renderTeachingHistory();
-checkOllamaStatus();
+  els.tabs.forEach((tab) => {
+    tab.onclick = () => {
+      els.tabs.forEach((t) => t.classList.remove("active"));
+      els.tabPanels.forEach((p) => p.classList.remove("active"));
+      tab.classList.add("active");
+      document.getElementById(tab.dataset.tab).classList.add("active");
+    };
+  });
+}
+
+function init() {
+  els.nameInput.value = greetingName();
+  els.modelInput.value = getModel();
+  els.teachingNotes.value = getTeachingNotes();
+  els.speakBtn.dataset.enabled = "false";
+  renderGreeting();
+  renderHistory();
+  renderTeachingHistory();
+  setupVoiceRecognition();
+  initEvents();
+  checkOllamaStatus();
+}
+
+init();
