@@ -11,7 +11,7 @@
       <section class="card">
         <header>
           <h1 id="greeting">Greetings, friend.</h1>
-          <p class="tagline">Nova — your soothing AI friend and assistant.</p>
+          <p class="tagline">Nova — local-first AI companion powered by Ollama.</p>
         </header>
 
         <section class="settings">
@@ -21,28 +21,50 @@
             <button id="saveNameBtn">Save</button>
           </div>
 
-          <label for="apiKeyInput">OpenAI API key (stored locally)</label>
+          <label for="modelInput">Ollama model</label>
           <div class="row">
-            <input id="apiKeyInput" type="password" placeholder="sk-..." />
-            <button id="saveKeyBtn">Save Key</button>
+            <input id="modelInput" type="text" placeholder="llama3.1:8b" />
+            <button id="saveModelBtn">Save Model</button>
           </div>
 
           <div class="row wrap">
-            <label class="checkbox">
-              <input id="internetToggle" type="checkbox" checked />
-              Allow internet lookup
-            </label>
-            <button id="speakBtn" class="secondary">Hear Nova</button>
+            <button id="startOllamaBtn" class="secondary">Start Ollama (PowerShell)</button>
+            <button id="stopOllamaBtn" class="secondary">Stop Ollama</button>
             <button id="clearBtn" class="secondary">Clear Chat</button>
           </div>
+          <p id="statusText" class="status">Status: Unknown</p>
         </section>
 
-        <section id="chat" class="chat" aria-live="polite"></section>
+        <nav class="tabs">
+          <button class="tab active" data-tab="chatTab">Chat</button>
+          <button class="tab" data-tab="statusTab">Status</button>
+          <button class="tab" data-tab="teachingTab">Teaching</button>
+        </nav>
 
-        <form id="chatForm" class="row">
-          <input id="messageInput" type="text" placeholder="Talk to Nova..." autocomplete="off" required />
-          <button type="submit">Send</button>
-        </form>
+        <section id="chatTab" class="tab-panel active">
+          <section id="chat" class="chat" aria-live="polite"></section>
+          <form id="chatForm" class="row">
+            <input id="messageInput" type="text" placeholder="Talk to Nova..." autocomplete="off" required />
+            <button type="submit">Send</button>
+          </form>
+        </section>
+
+        <section id="statusTab" class="tab-panel">
+          <div id="statusPanel" class="panel"></div>
+        </section>
+
+        <section id="teachingTab" class="tab-panel">
+          <p class="tagline">Teach Nova by sharing preferred behavior, facts, and workflow notes. Stored locally and injected into prompts.</p>
+          <textarea id="teachingNotes" rows="6" placeholder="Example: When helping me with NeoForge mods, prefer Gradle tasks and Java snippets."></textarea>
+          <div class="row">
+            <button id="saveTeachingBtn" type="button">Save Teaching Notes</button>
+          </div>
+          <section id="teachingChat" class="chat"></section>
+          <form id="teachingForm" class="row">
+            <input id="teachingInput" type="text" placeholder="Teach Nova something..." autocomplete="off" required />
+            <button type="submit">Teach</button>
+          </form>
+        </section>
       </section>
     </main>
 
