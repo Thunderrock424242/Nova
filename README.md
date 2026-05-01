@@ -9,7 +9,7 @@ Use these commands on Windows PowerShell.
 ### 1) Start Ollama server
 
 ```powershell
-Start-Process ollama -ArgumentList 'serve'
+Write-Host "Ollama API: http://localhost:11434"; ollama serve
 ```
 
 ### 2) Stop Ollama server
@@ -33,5 +33,6 @@ ollama pull llama3.1:8b
 ## Notes
 
 - The UI expects Ollama at `http://localhost:11434`.
+- Ollama API URL (online when server is running): `http://localhost:11434`.
 - Teaching notes/conversation are stored in browser `localStorage`.
 - Default model is `llama3.1:8b` (can be changed in the app).

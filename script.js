@@ -70,11 +70,13 @@ function renderTeachingHistory() {
 }
 
 function setStatus(status, details = "") {
+  const ollamaUrl = "http://localhost:11434";
   els.statusText.textContent = `Status: ${status}`;
   els.statusPanel.innerHTML = `
     <p><strong>Engine:</strong> Ollama</p>
     <p><strong>Model:</strong> ${getModel()}</p>
     <p><strong>Server:</strong> ${status}</p>
+    <p><strong>URL:</strong> <a href="${ollamaUrl}" target="_blank" rel="noreferrer">${ollamaUrl}</a></p>
     ${details ? `<p><strong>Details:</strong> ${details}</p>` : ""}
   `;
 }
@@ -87,7 +89,7 @@ async function checkOllamaStatus() {
     const models = (data.models || []).map((m) => m.name).join(", ") || "No local models installed";
     setStatus("Online", models);
   } catch {
-    setStatus("Offline", "Run: Start-Process ollama -ArgumentList 'serve'");
+    setStatus("Offline", "Run in IntelliJ terminal: Write-Host \"Ollama API: http://localhost:11434\"; ollama serve");
   }
 }
 
